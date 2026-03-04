@@ -1,0 +1,77 @@
+#======================#
+#Bookmarks_cd    
+#======================#
+cd_aes@ /home/kazama/Tool/AES/tb/sv 
+cd_cmd@ ~/cmd
+cd_now@ /home/kazama/git/x2c 
+cd_py@ /home/kazama/py_env 
+cd_rng@ /home/kazama/Tool/RNG/delivery_data/913-076033-240_Security-IP-76d-8-SHA2_HW2.4.4/Security-IP-76d-8-SHA2_HW2.4.4/Security-IP-76d-8-SHA2_HW2.4.4/eip76/simulation/ncsim 
+cd_run@ /home/kazama/Tool/AES/run 
+cd_sha@ /home/kazama/Tool/SHA/eip57 
+cd_vec@ /home/kazama/Tool/AES/vector 
+cd_video@ /mnt/c/Users/h21kazama/Videos/Captures 
+cd_vivado@ /tools/Xilinx/Vivado/2024.2/bin 
+#======================#
+#Bookmarks_source
+#======================#
+so_bso@ ~/cmd/bookmarks_source.csh
+so_cid@ ~/cmd/gid_change.csh
+so_ck@ ~/cmd/auto_nest.csh
+so_comp@ ~/cmd/comp.csh
+so_cor@ ~/cmd/eldo_relation/corner_spi.csh
+so_cpmdl@ ~/cmd/cpmdl.csh
+so_cpnet@ ~/cmd/eldo_relation/cpnet_daic.csh
+so_cpoem@ ~/cmd/OEM_kensyou/cpoem.csh
+so_delv@ ~/cmd/del_v.csh
+so_diff@ ~/cmd/diff.csh
+so_disp@ ~/cmd/UNUSED_DISPLAY.csh
+so_gid@ ~/cmd/gid_change_old.csh
+so_h2b@ ~/cmd/hex2bin.csh
+so_keep@ /home/kazama/git/CMVP/scripts/utility/keep_dir/keep_dir.csh
+so_kick@ ~/cmd/kick_me.csh
+so_lang2@ ~/cmd/lang_bk.csh
+so_lang@ ~/cmd/lang_select.csh
+so_llic@ /home/kazama/cmd/LOGIC_LICENSE_CHECKER.csh
+so_ptn@ ~/cmd/ptn.csh
+so_rmi@ /home/kazama/cmd/RM_file_Identifier.csh
+so_rmpsf@ ~/cmd/RM_file_psf.csh
+so_rmtmp@ /home/kazama/git/CMVP/scripts/utility/rm_tmpfile/rm_tmpfile.csh
+so_set@ /home/kazama/Tool/setup/setup_cshrc
+so_setup@ /home/kazama/Tool/setup/setup_cshrc
+so_tree@ ~/cmd/tree_cd.csh
+so_w2b@ /home/kazama/git/x2c/word2md.csh
+#======================#
+#Bookmarks_vi    
+#======================#
+vi_bcd@ ~/cmd/bookmarks_dir.csh
+vi_bda@ ~/cmd/bda_measure.list
+vi_bso@ ~/cmd/bookmarks_source.csh
+vi_bvi@ ~/cmd/bookmarks_file.csh
+vi_cd@ ~/cmd/cd_history.csh
+vi_ck@ ~/cmd/auto_nest.csh
+vi_comp@ ~/cmd/comp.csh
+vi_cpnet@ ~/cmd/eldo_relation/cpnet_daic.csh
+vi_diff@ ~/cmd/diff.csh
+vi_dmemo@ /home/kazama/git/CMVP/repo_guide/developer_memo.md
+vi_kick@ ~/cmd/kick_me.csh
+vi_lang@ ~/cmd/lang_select.csh
+vi_llic@ /home/kazama/cmd/LOGIC_LICENSE_CHECKER.csh
+vi_loglic@ ~/cmd/LOGIC_LICENSE_CHECKER.csh
+vi_memo@ /memo
+vi_new@ ~/cmd/new_shell.csh
+vi_rmi@ /home/kazama/cmd/RM_file_Identifier.csh
+vi_rmtmp@ /home/kazama/cmd/rm_tmpfile.sh
+vi_set@ /home/kazama/Tool/setup/setup_cshrc
+vi_sx@ ~/cmd/login.csh
+vi_tb@ /home/kazama/Tool/SHA/eip57/uvm_tb/tb/sverilog/top/eip57_tb_top.sv
+vi_test@ /test.csh
+vi_tree@ ~/cmd/tree_cd.csh
+vi_vim@ /.vimrc
+vi_vnc@ /home/kazama/.vnc/xstartup
+vi_w2m@ /home/kazama/git/x2c/word2md.csh
+cd_c,vp@ /home/kazama/git/CMVP 
+cd_cmvp@ /home/kazama/git/CMVP 
+cd_git@ /mnt/c/Git/git-toolbox 
+cd_venv@ /mnt/c/Git/git-toolbox/paypay/paypay_scrape/.venv/bin 
+so_venv@ /mnt/c/Git/git-toolbox/paypay/paypay_scrape/.venv/bin/activate.csh
+vi_venv@ /mnt/c/Git/git-toolbox/paypay/paypay_scrape/.venv/bin/activate.csh

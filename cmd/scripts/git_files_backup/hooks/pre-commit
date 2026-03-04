@@ -1,0 +1,67 @@
+#!/bin/bash
+
+#=============================================================#
+# cd : Git root directory 
+#=============================================================#
+PROJECT_ROOT="$(git rev-parse --show-toplevel)"
+cd "$PROJECT_ROOT"
+#=============================================================#
+# scripts directory path
+#=============================================================#
+SCRIPTS_DIR="${PROJECT_ROOT}/scripts/automation"
+
+#=============================================================#
+# main direct commit NG checker
+#=============================================================#
+#$SCRIPTS_DIR/checker_main_commit.sh
+
+#=============================================================#
+# Call external script to remove unwanted 'identifier' files
+#=============================================================#
+$SCRIPTS_DIR/rm_tmpfile.sh
+
+#=============================================================#
+# Convert Excel=>CSV & Word=>Markdown
+#=============================================================#
+echo "[HOOK] Checking staged files for DOCX/XLSX..."
+FILES=$(git diff --cached --name-only | grep -E '\.docx$|\.xlsx$')
+if [ -z "$FILES" ]; then
+  echo "[HOOK] No document files to convert. Skipping."
+  exit 0
+fi
+
+for file in $FILES; do
+  [[ -f "$file" ]] || continue
+
+  case "$file" in
+    *.docx)
+      echo "[HOOK] Word: $file"
+      $SCRIPTS_DIR/word2md.sh "$file" || {
+        echo "[HOOK] Conversion failed: $file"
+        exit 1
+      }
+      ;;
+    *.xlsx)
+      echo "[HOOK] Excel: $file"
+      $SCRIPTS_DIR/excel2csv.sh "$file" || {
+        echo "[HOOK] Conversion failed: $file"
+        exit 1
+      }
+      ;;
+    *.xlsm)
+      echo "[HOOK] Excel: $file"
+      $SCRIPTS_DIR/excel2csv.sh "$file" || {
+        echo "[HOOK] Conversion failed: $file"
+        exit 1
+      }
+      ;;
+  esac
+done
+
+echo "[HOOK] Document conversion complete."
+
+#===============================================#
+# add Convereted logfiles
+#===============================================#
+cd $(git rev-parse --show-toplevel)
+git add logs/word2md/ logs/excel2csv/

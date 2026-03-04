@@ -1,0 +1,148 @@
+mode        : file
+before      : bookmarks_file.csh
+after       : bookmarks_source.csh
+outdir      : ./diff_out
+ignore_crlf : 0
+
+
+#==============================#
+bookmarks_file.csh <-> bookmarks_source.csh
+#==============================#
+[difference]
+
+bookmarks_file.csh ⟶   bookmarks_source.csh
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+│  1 │ #!/bin/csh -f                                                                                │  1 │ #!/bin/csh -f
+│  2 │ #User Options                                                                                │  2 │ #User Options
+│  3 │-#Bookmark list save directory(Default:/userdata/c9kazama/cmd)                                │  3 │+#Bookmark list save directory(Default:/cmd)                                                  
+│  4 │ set base_dir = ~/cmd                                                                         │  4 │ set base_dir = ~/cmd
+│  5 │-#"1":Check before "vi"command(Default), "0":Don't ask before "vi"command                     │  5 │+#"1":Check before "source"command(Default), "0":Don't ask before "source"command             
+│  6 │ set check_option = 1                                                                         │  6 │ set check_option = 1
+│  7 │                                                                                              │  7 │ 
+│  8 │-set bmode = "vi"                                                                             │  8 │+set bmode = "so"                                                                             
+│  9 │ #Local variable                                                                              │  9 │ #Local variable
+│ 10 │ set bookmarks_list = $base_dir/bookmarks.list                                                │ 10 │ set bookmarks_list = $base_dir/bookmarks.list
+│ 11 │                                                                                              │ 11 │ 
+│ 12 │                                                                                              │ 12 │ 
+│ 13 │ set MARKER1 = "Bookmarks_$bmode"                                                             │ 13 │ set MARKER1 = "Bookmarks_$bmode"
+│ 14 │ set MARKER2 = "${bmode}_"                                                                    │ 14 │ set MARKER2 = "${bmode}_"
+│ 15 │-set BAR = "#======================#"                                                         │    │
+│    │                                                                                              │ 15 │+                                                                                             
+│    │                                                                                              │ 16 │+set add_argment = "$argv[2-$#argv]"                                                          
+│    │                                                                                              │ 17 │+                                                                                             
+│ 16 │ if ($#argv == 0) then                                                                        │ 18 │ if ($#argv == 0) then
+│ 17 │     echo "Error : Not enough arguments"                                                      │ 19 │     echo "Error : Not enough arguments"
+│ 18 │-    echo "Try 'bvi -h' for more information."                                                │ 20 │+    echo "Try 'bso -h' for more information."                                                
+│ 19 │     exit(0)                                                                                  │ 21 │     exit(0)
+│ 20 │ endif                                                                                        │ 22 │ endif
+│ 21 │-#command "-h" : usage                                                                        │    │
+│    │                                                                                              │ 23 │+                                                                                             
+│ 22 │ if ($#argv == 1 && "$argv[1]" == "-h") then                                                  │ 24 │ if ($#argv == 1 && "$argv[1]" == "-h") then
+│ 23 │     cat << EOF                                                                               │ 25 │     cat << EOF
+│ 24 │-    usage : bvi -l(-la)         -> Show bookmarks                                            │ 26 │+    usage : bso -l(-la)         -> Show bookmarks.                                           
+│ 25 │-    usage : bvi -v              -> View & edit bookmarks                                     │ 27 │+    usage : bso -v              -> View & edit bookmarks                                     
+│ 26 │-    usage : bvi -b file_name XX -> Add XX to bookmark                                        │ 28 │+    usage : bso -s file_name XX -> Add XX to bookmark                                        
+│ 27 │-    usage : bvi -d XX           -> Remove XX from bookmarks                                  │ 29 │+    usage : bso -d XX           -> Remove XX from bookmarks                                  
+│ 28 │-    usage : bvi XX              -> vi bookmarks                                              │ 30 │+    usage : bso XX              -> Source bookmarks                                          
+│ 29 │ EOF                                                                                          │ 31 │ EOF
+│ 30 │     exit(0)                                                                                  │ 32 │     exit(0)
+│ 31 │                                                                                              │ 33 │     
+
+│ 44 │ #command "-l" : Displayed bookmarks (Directory only)                                         │ 46 │ #command "-l" : Displayed bookmarks (Directory only)
+│ 45 │     if ($#argv == 1 && "$argv[1]" == "-l") then                                              │ 47 │     if ($#argv == 1 && "$argv[1]" == "-l") then
+│ 46 │         grep -1 -e "$MARKER1" $bookmarks_list                                                │ 48 │         grep -1 -e "$MARKER1" $bookmarks_list
+│ 47 │-        grep    -e "$MARKER2" $bookmarks_list | sed -e "s/$MARKER2//g" -e "s/@/\t-> /g"      │ 49 │+        grep    -e "^$MARKER2" $bookmarks_list | sed -e "s/$MARKER2//g" -e "s/@/\t-> /g"     
+│ 48 │ #command "-la" : Displayed bookmarks (All)                                                   │ 50 │ #command "-la" : Displayed bookmarks (All)
+│ 49 │     else if ($#argv == 1 && "$argv[1]" == "-la") then                                        │ 51 │     else if ($#argv == 1 && "$argv[1]" == "-la") then
+│ 50 │         sed -e "s/vi_//g" -e "s/cd_//g" -e "s/so_//g" -e "s/@/\t-> /g" $bookmarks_list       │ 52 │         sed -e "s/vi_//g" -e "s/cd_//g" -e "s/so_//g" -e "s/@/\t-> /g" $bookmarks_list
+
+│ 54 │     endif                                                                                    │ 56 │     endif
+│ 55 │     exit(0)                                                                                  │ 57 │     exit(0)
+│ 56 │ endif                                                                                        │ 58 │ endif
+│ 57 │-#command "XX" : vi XX (XX = bookmark name)                                                   │    │
+│ 58 │-if ($#argv == 1) then                                                                        │    │
+│ 59 │-    set bookmark_name = `grep -o $MARKER2$argv[1]@ $bookmarks_list`                          │    │
+│ 60 │-    set edit_file = `grep $MARKER2$argv[1]@ $bookmarks_list | sed -e "s/$MARKER2$argv[1]@//g↵│    │
+│    │ "`                                                                                           │    │
+│ 61 │-    if ("$MARKER2$argv[1]@" != "$bookmark_name") then                                        │    │
+│ 62 │-        echo "Error : Undifind file -> $argv[1]"                                             │    │
+│ 63 │-        exit(0)                                                                              │    │
+│ 64 │-    else if ($check_option != 0) then                                                        │    │
+│ 65 │-        echo "vi : $edit_file"                                                               │    │
+│ 66 │-        echo "Open the file [Press:y/n/Enter]"                                               │    │
+│ 67 │-        set answer = $<                                                                      │    │
+│ 68 │-        if ($answer ==  "y" || $answer == "") then                                           │    │
+│ 69 │-            vi $edit_file                                                                    │    │
+│ 70 │-        else if ($answer ==  "n") then                                                       │    │
+│ 71 │-            echo "Canceled"                                                                  │    │
+│ 72 │-        else                                                                                 │    │
+│ 73 │-            echo "Don't understand : $answer"                                                │    │
+│ 74 │-        endif                                                                                │    │
+│ 75 │-    else                                                                                     │    │
+│ 76 │-        echo "vi : $edit_file"                                                               │    │
+│ 77 │-        vi $edit_file                                                                        │    │
+│ 78 │-        exit(0)                                                                              │    │
+│ 79 │-    endif                                                                                    │    │
+│ 80 │ #command "-d XX" : Remove the path registered as XX from the bookmarks.                      │ 59 │ #command "-d XX" : Remove the path registered as XX from the bookmarks.
+│ 81 │-else if ($#argv == 2 && "$argv[1]" == "-d") then                                             │ 60 │+if ($#argv == 2 && "$argv[1]" == "-d") then                                                  
+│ 82 │     set bookmark_name = `grep -o $MARKER2$argv[2]@ $bookmarks_list`                          │ 61 │     set bookmark_name = `grep -o $MARKER2$argv[2]@ $bookmarks_list`
+│ 83 │     if ("$MARKER2$argv[2]@" != "$bookmark_name") then                                        │ 62 │     if ("$MARKER2$argv[2]@" != "$bookmark_name") then
+│ 84 │         echo "Error : Undifind file -> $argv[2]"                                             │ 63 │         echo "Error : Undifind file -> $argv[2]"
+│ 85 │         exit(0)                                                                              │ 64 │         exit(0)
+│ 86 │     else                                                                                     │ 65 │     else
+│ 87 │-        set edit_file = `grep $MARKER2$argv[2]@ $bookmarks_list | sed -e "s/$MARKER2$argv[2]↵│ 66 │+        set file = ` grep $MARKER2$argv[2]@ $bookmarks_list | sed -e "s/$MARKER2$argv[2]@//g↵
+│    │ @//g"`                                                                                       │    │ "`                                                                                           
+│ 88 │         sed -i "/$MARKER2$argv[2]@/d" $bookmarks_list                                        │ 67 │         sed -i "/$MARKER2$argv[2]@/d" $bookmarks_list
+│ 89 │-        echo "Removed from bookmark : $argv[2] -> $edit_file "                               │ 68 │+        echo "Removed from bookmark : $argv[2] -> $file "                                    
+│ 90 │         exit(0)                                                                              │ 69 │         exit(0)
+│ 91 │     endif                                                                                    │ 70 │     endif
+│ 92 │ #command "-b XX" : Add the current path to a bookmarks with the name XX                      │ 71 │ #command "-b XX" : Add the current path to a bookmarks with the name XX
+
+│ 94 │     echo "Error : Not enough arguments"                                                      │ 73 │     echo "Error : Not enough arguments"
+│ 95 │     exit(0)                                                                                  │ 74 │     exit(0)
+│ 96 │ else if ($#argv == 3 && "$argv[1]" == "-b") then                                             │ 75 │ else if ($#argv == 3 && "$argv[1]" == "-b") then
+│ 97 │-                                                                                             │    │
+│ 98 │     if (!(-f $argv[2])) then                                                                 │ 76 │     if (!(-f $argv[2])) then
+│ 99 │         echo "Error : Undifind file -> $argv[2]"                                             │ 77 │         echo "Error : Undifind file -> $argv[2]"
+│ 100│         exit(0)                                                                              │ 78 │         exit(0)
+│ 101│     else                                                                                     │ 79 │     else
+│ 102│-#==============ADD=========#                                                                 │    │
+│ 103│         if (-f ./$argv[2]) then                                                              │ 80 │         if (-f ./$argv[2]) then
+│ 104│             set add_bookmark = `pwd`"/$argv[2]"                                              │ 81 │             set add_bookmark = `pwd`"/$argv[2]"
+│ 105│         else                                                                                 │ 82 │         else
+│ 106│             set add_bookmark = "$argv[2]"                                                    │ 83 │             set add_bookmark = "$argv[2]"
+│ 107│         endif                                                                                │ 84 │         endif
+│ 108│-#==============ADD=========#                                                                 │    │
+│ 109│-        sed -i "/$MARKER2$argv[3]@/d" $bookmarks_list                                        │ 85 │+        sed -i "/$MARKER2$argv[3]@/d"  $bookmarks_list                                       
+│ 110│         echo "Added to bookmark : $argv[3] -> $add_bookmark"                                 │ 86 │         echo "Added to bookmark : $argv[3] -> $add_bookmark"
+│ 111│         echo "$MARKER2$argv[3]@ $add_bookmark" >> $bookmarks_list                            │ 87 │         echo "$MARKER2$argv[3]@ $add_bookmark" >> $bookmarks_list
+│ 112│-        exit(0)                                                                              │ 88 │+        exit (0)                                                                             
+│ 113│-    endif                                                                                    │ 89 │+    endif                                                                                    
+│ 114│-else                                                                                         │    │
+│    │                                                                                              │ 90 │+endif                                                                                        
+│    │                                                                                              │ 91 │+                                                                                             
+│    │                                                                                              │ 92 │+set source_file = `grep $MARKER2$argv[1]@ $bookmarks_list | sed -e "s/$MARKER2$argv[1]@//g"` 
+│    │                                                                                              │ 93 │+set search_file = `grep -o $MARKER2$argv[1]@ $bookmarks_list`                                
+│    │                                                                                              │ 94 │+if ("$MARKER2$argv[1]@" != "$search_file") then                                              
+│ 115│-    echo "Error : Too many arguments "                                                       │ 95 │+    echo "Error : Undifind file -> $argv[1]"                                                 
+│ 116│     exit(0)                                                                                  │ 96 │     exit(0)
+│    │                                                                                              │ 97 │+else if ($check_option != 0) then                                                            
+│    │                                                                                              │ 98 │+    echo "Source : $source_file"                                                             
+│    │                                                                                              │ 99 │+    echo "Source the file [Press:y/n/Enter]"                                                 
+│    │                                                                                              │ 100│+    set answer = $<                                                                          
+│    │                                                                                              │ 101│+    if ($answer == "y" || $answer == "") then                                                
+│    │                                                                                              │ 102│+        shift                                                                                
+│    │                                                                                              │ 103│+        echo "It was sourced -> $source_file"                                                
+│    │                                                                                              │ 104│+        source $source_file $add_argment                                                     
+│    │                                                                                              │ 105│+    else if ($answer == "n") then                                                            
+│    │                                                                                              │ 106│+        echo "Canceled"                                                                      
+│    │                                                                                              │ 107│+    else                                                                                     
+│    │                                                                                              │ 108│+        echo "Don't understand : $answer"                                                    
+│    │                                                                                              │ 109│+    endif                                                                                    
+│    │                                                                                              │ 110│+else                                                                                         
+│    │                                                                                              │ 111│+    echo "source : $source_file"                                                             
+│    │                                                                                              │ 112│+    echo "It was sourced -> $source_file"                                                    
+│    │                                                                                              │ 113│+    shift                                                                                    
+│    │                                                                                              │ 114│+    source $source_file $add_argment                                                         
+│ 117│ endif                                                                                        │ 115│ endif

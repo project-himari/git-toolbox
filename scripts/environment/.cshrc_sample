@@ -1,0 +1,121 @@
+# .cshrc of kazama
+#==================================================================#
+# Load common cshrc (Don't touch)
+#==================================================================#
+ umask 007
+ set path=($path /bin /usr/bin /usr/ucb /etc /usr/sbin /usr/local/bin /usr/lib /usr/openwin/bin ~/cmd . )
+ if ( $?prompt ) then
+        set history=100
+ endif
+
+# Display possible completion candidates when file name completion is used (tcsh only)
+ set autolist
+
+# Disable automatic logout
+ unset autologout
+
+# Prevent logout using Ctrl-D
+ set ignoreeof
+
+# Set the upper limit for core files (Ex: 5000 means 5MB)
+ limit coredumpsize 1
+
+# setup unix path
+ set filec
+
+#==================================================================#
+# alias-command
+#==================================================================#
+#[file size check]
+ alias  du         'du -h -s * .??*'
+#[disk aki size check]
+ alias  df         'df -h | grep -v tmpfs'
+ alias  cp         'cp -rp'
+ alias  psu        'ps -u `whoami`'
+ alias  a          'alias'
+ alias  so         'source'
+ alias  ll         'ls -la --color=auto'
+ alias  ls         'ls -aF --color=auto'
+ alias  sl         'ls -aF --color=auto'
+ alias  hi         'history'
+ alias  rm         'rm -iv'
+ alias  treex       'tree -uiDhsf'
+
+
+#==================================================================#
+# alias-login
+#==================================================================#
+
+#==================================================================#
+# User Area
+#==================================================================#
+#prompt option
+#set getgid = `id | awk '{print substr($2,index($2,"("),length($2))}' | sed -e "s/(//g" -e "s/)//g"`
+#set prompt = "%n@%m [$getgid] "
+set prompt = "$ "
+#alias precmd 'set prompt="[(`git branch --show-current`)%c2] "'
+#==================================================================#
+# alias-environment
+#==================================================================#
+#LANG 
+#setenv LANG "ja_JP.eucJP"
+#  setenv LANG "ja_JP.UTF-8"
+   setenv LANG "en_US.UTF-8"
+#  setenv LANG "C"
+
+#==================================================================#
+# User Script
+#==================================================================#
+ alias  untgz      'source ~/cmd/untgz.csh'
+ alias  bcd        'so ~/cmd/bookmarks_dir.csh'
+ alias  bvi        'so ~/cmd/bookmarks_file.csh'
+ alias  bso        'so ~/cmd/bookmarks_source.csh'
+ alias  tcd        'so ~/cmd/tree_cd.csh'
+#new enviroment common
+ alias  psz        'ps -ef | grep defunct'
+ alias  cmd        'cd ~/cmd/'
+ alias  fd         'find ./ -name'
+ alias  cd         'cd \!* && source ~/cmd/cd_history.csh;ls'
+ alias  vicsh      'vi ~/.cshrc'
+ alias  socsh      'so ~/.cshrc'
+ alias  vivim      'vi ~/.vimrc'
+ 
+ alias pdf "evince"
+ alias vid "vimdiff"
+ alias tree1 'tree -L 1'
+ alias tree2 'tree -L 2'
+ alias tree3 'tree -L 3'
+
+
+#setenv DISPLAY  192.168.10.173:0.0
+
+setenv DISPLAY  :1
+#alias  vncon "vncserver :0"
+alias  vncoff "vncserver -kill $DISPLAY"
+#setenv DISPLAY `grep -oP "(?<=nameserver ).+" /etc/resolv.conf`:0
+alias vncon "vncserver $DISPLAY -localhost no -geometry 1920x1080 -depth 24"
+alias lsvnc "vncserver -list"
+alias xe "xeyes"
+set code_bin  = `find ~/.vscode-server/bin -name '*code' | grep remote-cli`
+alias code $code_bin
+
+
+## pyenv のルートを設定
+#setenv PYENV_ROOT $HOME/.pyenv
+#
+## pyenv の実行ファイルをパスに追加
+#set path = ( $PYENV_ROOT/bin $path )
+#set path = ( $PYENV_ROOT/shims $path )
+#
+## pyenv が存在するか確認
+#if ( -x "$PYENV_ROOT/bin/pyenv" ) then
+#  # bash向けの初期化は使わず、最低限のパス設定だけでOK
+##  echo "[INFO] pyenv is available in tcsh"
+#endif
+
+alias py  "python"
+#for git
+alias gmv "git mv"
+alias gst "git status"
+alias gad "git add"
+alias gcm "git commit -m"

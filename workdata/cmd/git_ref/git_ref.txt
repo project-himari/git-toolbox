@@ -1,0 +1,144 @@
+==============================
+ Git 基本コマンド リファレンス
+==============================
+
+
+■ リポジトリ取得
+-------------------------------------------------
+git clone <URL>
+  初めてリポジトリを取得するとき
+
+
+■ ブランチ操作
+-------------------------------------------------
+git checkout <branch>
+  既存ブランチへ移動
+
+git checkout -b <branch>
+  新規ブランチ作成＋移動
+
+git switch <branch>
+  checkoutより安全なブランチ移動
+
+git switch -c <branch>
+  新規ブランチ作成＋移動（新方式）
+
+git branch
+  ローカルブランチ一覧
+
+git branch -a
+  全ブランチ一覧（リモート含む）
+
+git branch -d <branch>
+  マージ済みブランチ削除
+
+git branch -D <branch>
+  強制削除
+
+
+■ リモート更新
+-------------------------------------------------
+git pull
+  最新変更を取得＋マージ
+
+git fetch
+  最新情報だけ取得（マージしない）
+
+git remote -v
+  リモートURL確認
+
+
+■ コミット関連
+-------------------------------------------------
+git status
+  変更状況確認
+
+git add <file>
+  ファイルをステージ
+
+git add .
+  すべてステージ
+
+git commit -m "msg"
+  コミット作成
+
+git push
+  リモートへ送信
+
+
+■ 変更を戻す
+-------------------------------------------------
+git restore <file>
+  変更を破棄
+
+git restore .
+  全変更を破棄
+
+git restore --staged <file>
+  addの取り消し
+
+git restore --source <commit> <file>
+  特定コミットの状態に戻す
+
+git reset <file>
+  ステージ解除
+
+git reset
+  全ステージ解除
+
+
+■ 差分確認
+-------------------------------------------------
+git diff
+  未ステージ差分確認
+
+git diff --cached
+  ステージ済み差分確認
+
+git diff <branch1> <branch2>
+  ブランチ間差分
+
+
+■ マージ・リベース
+-------------------------------------------------
+git merge <branch>
+  ブランチ統合
+
+git rebase <branch>
+  履歴を整理しながら統合
+
+
+■ 履歴確認
+-------------------------------------------------
+git log
+  詳細履歴
+
+git log --oneline
+  簡易履歴
+
+git log --oneline --graph --decorate --all
+  ブランチ構造表示
+
+
+■ タグ
+-------------------------------------------------
+git tag
+  タグ一覧
+
+git tag <tag>
+  軽量タグ
+
+git tag -a <tag> -m "msg"
+  注釈付きタグ
+
+git push origin <tag>
+  タグ送信
+
+git push origin --tags
+  全タグ送信
+
+git tag -d <tag>
+  ローカルタグ削除
+
+git push origin :refs/tags/<tag>
+  リモートタグ削除

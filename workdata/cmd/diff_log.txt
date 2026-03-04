@@ -1,0 +1,175 @@
+before_path : rtl_asic
+after_path  : rtl_asic_8ki
+before file <-> after_file
+
+#==============================#
+CB.v <-> CB.v
+#==============================#
+[no difference]
+
+#==============================#
+- <-> cre_ecc_addsub.v
+#==============================#
+[add_file] cre_ecc_addsub.v
+
+#==============================#
+- <-> cre_ecc_add.v
+#==============================#
+[add_file] cre_ecc_add.v
+
+#==============================#
+- <-> cre_ecc_csa.v
+#==============================#
+[add_file] cre_ecc_csa.v
+
+#==============================#
+cre_ecc_ctrl.sv <-> cre_ecc_ctrl.sv
+#==============================#
+[no difference]
+
+#==============================#
+- <-> cre_ecc_dec.v
+#==============================#
+[add_file] cre_ecc_dec.v
+
+#==============================#
+cre_ecc_full.v <-> cre_ecc_full.v
+#==============================#
+[no difference]
+
+#==============================#
+- <-> cre_ecc_inc.v
+#==============================#
+[add_file] cre_ecc_inc.v
+
+#==============================#
+- <-> cre_ecc_multp.v
+#==============================#
+[add_file] cre_ecc_multp.v
+
+#==============================#
+cre_ecc_regif.v <-> cre_ecc_regif.v
+#==============================#
+
+rtl_asic/cre_ecc_regif.v ⟶   rtl_asic_8ki/cre_ecc_regif.v
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+│  4 │ //                                                                                           │  4 │ //
+│  5 │ // File Name    : cre_ecc_regif.v                                                            │  5 │ // File Name    : cre_ecc_regif.v
+│  6 │ // Module Name  : cre_ecc_regif                                                              │  6 │ // Module Name  : cre_ecc_regif
+│    │                                                                                              │  7 │+// Last Update  : 04/11/2025                                                                 
+│    │                                                                                              │  8 │+//              : BIST & CAVP support                                                        
+│  7 │ //                                                                                           │  9 │ //
+│  8 │ //===============================================================================            │ 10 │ //===============================================================================
+│  9 │                                                                                              │ 11 │ 
+
+│ 199│ assign w_lrdata_addr_sel = {27'h000_0000 , r_reg_addr_sel};                                  │ 201│ assign w_lrdata_addr_sel = {27'h000_0000 , r_reg_addr_sel};
+│ 200│ assign w_lrdata_data     = I_REG_RDATA;                                                      │ 202│ assign w_lrdata_data     = I_REG_RDATA;
+│ 201│ //assign w_lrdata_status   = {31'h0000_0000 , I_REG_BUSY};                                   │ 203│ //assign w_lrdata_status   = {31'h0000_0000 , I_REG_BUSY};
+│ 202│-assign w_lrdata_status   = {31'h0000_0000 , (I_REG_BUSY | w_data_phase_wr_cmd | r_reg_cmd_we↵│ 204│+assign w_lrdata_status   = {4'h6, 12'h001, 15'h0000 , (I_REG_BUSY | w_data_phase_wr_cmd | r_↵
+│    │ )};                                                                                          │    │ reg_cmd_we)};                                                                                
+│ 203│                                                                                              │ 205│ 
+│ 204│ always @ (posedge clk or negedge rstn) begin                                                 │ 206│ always @ (posedge clk or negedge rstn) begin
+│ 205│   if (!rstn) begin                                                                           │ 207│   if (!rstn) begin
+
+#==============================#
+- <-> cre_ecc_sub.v
+#==============================#
+[add_file] cre_ecc_sub.v
+
+#==============================#
+cre_ecc.v <-> cre_ecc.v
+#==============================#
+[no difference]
+
+#==============================#
+CRYPRO_02_header.v <-> CRYPRO_02_header.v
+#==============================#
+[no difference]
+
+#==============================#
+CRYPRO_32bit.v <-> CRYPRO_32bit.v
+#==============================#
+[no difference]
+
+#==============================#
+- <-> DEVICE_header.v
+#==============================#
+[add_file] DEVICE_header.v
+
+#==============================#
+func.v <-> func.v
+#==============================#
+[no difference]
+
+#==============================#
+MAS.v <-> MAS.v
+#==============================#
+[no difference]
+
+#==============================#
+MIN.v <-> MIN.v
+#==============================#
+[no difference]
+
+#==============================#
+MIR.v <-> MIR.v
+#==============================#
+[no difference]
+
+#==============================#
+MMS.v <-> MMS.v
+#==============================#
+[no difference]
+
+#==============================#
+MPC.v <-> MPC.v
+#==============================#
+[no difference]
+
+
+//--------Summary--------//
+
+#==============================#
+#Same files       : 12
+#==============================#
+CB.v
+cre_ecc_ctrl.sv
+cre_ecc_full.v
+cre_ecc.v
+CRYPRO_02_header.v
+CRYPRO_32bit.v
+func.v
+MAS.v
+MIN.v
+MIR.v
+MMS.v
+MPC.v
+
+#==============================#
+#Different files  : 1
+#==============================#
+#before file <-> after_file
+cre_ecc_regif.v<--->cre_ecc_regif.v
+
+#==============================#
+#Added files      : 8
+#==============================#
+cre_ecc_addsub.v
+cre_ecc_add.v
+cre_ecc_csa.v
+cre_ecc_dec.v
+cre_ecc_inc.v
+cre_ecc_multp.v
+cre_ecc_sub.v
+DEVICE_header.v
+
+#==============================#
+#Removed files    : 0
+#==============================#
+
+
+#==============================#
+#Missing files    : 0
+#==============================#
+

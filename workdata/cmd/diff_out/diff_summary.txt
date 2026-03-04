@@ -1,0 +1,33 @@
+//--------Summary--------//
+
+#==============================#
+#Mode            : file
+#==============================#
+before : bookmarks_file.csh
+after  : bookmarks_source.csh
+
+#==============================#
+#Same files       : 0
+#==============================#
+
+#==============================#
+#Different files  : 1
+#==============================#
+#before file <-> after_file
+bookmarks_file.csh<--->bookmarks_source.csh
+
+#==============================#
+#Added files      : 0
+#==============================#
+
+#==============================#
+#Removed files    : 0
+#==============================#
+
+#==============================#
+#Missing files    : 0
+#==============================#
+
+[Message] Summary : ./diff_out/diff_summary.txt
+[Message] Details : ./diff_out/diff_detail.txt
+[Message] PairMap : <not applicable in file mode>

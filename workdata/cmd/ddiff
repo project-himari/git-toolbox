@@ -1,0 +1,585 @@
+#!/bin/bash
+set -euo pipefail
+
+# ==========================================
+# dirdiff.sh - generic file/directory diff utility
+# ==========================================
+# Features
+# - file vs file
+# - dir vs dir
+# - file vs dir => error (ambiguous)
+# - Auto mapping by same relative path (dir mode)
+# - Manual full map (--map / -m) (dir mode)
+# - Rename override map (--rename-map / -R) (dir mode)
+# - Auto map dump (--dump-auto-map / -D) (dir mode)
+# - Map-only mode (--exit-after-map / -M) (dir mode)
+# - Recursive compare (--recursive / -r) (dir mode)
+# - Extension filter (--ext / -e) (dir mode)
+# - CRLF ignore (--ignore-crlf / -I) (file/dir mode)
+# - Profiles (--profile / -p): all, text, rtl, code (dir mode defaults)
+# - delta fallback to diff -u
+# - summary/detail outputs
+#
+# Exit codes
+#   0: all same, no add/remove/missing
+#   1: differences found (diff only)
+#   2: add/remove/missing found (dir mode; with or without diff)
+#   3: usage/fatal error
+# ==========================================
+
+LINE='#==============================#'
+
+# Defaults
+RECURSIVE=0
+IGNORE_CRLF=0
+OUTDIR="./diff_out"
+SUMMARY_FILE=""
+DETAIL_FILE=""
+MANUAL_MAP=""
+RENAME_MAP=""
+EXT_FILTER=""
+PROFILE="all"
+SHOW_PROGRESS=1
+DUMP_AUTO_MAP=""
+EXIT_AFTER_MAP=0
+ALWAYS_SAVE_AUTO_MAP=1
+
+# Mode
+MODE=""   # file | dir
+
+# Stats
+count_same=0
+count_diff=0
+count_add=0
+count_remove=0
+count_missing=0
+
+declare -a list_same=()
+declare -a list_diff=()
+declare -a list_add=()
+declare -a list_remove=()
+declare -a list_missing=()
+
+usage() {
+  cat <<'EOF'
+Usage:
+  dirdiff.sh [OPTIONS] BEFORE AFTER
+  dirdiff.sh -h | --help
+
+Supported input combinations:
+  - file vs file : supported
+  - dir  vs dir  : supported
+  - file vs dir  : error (ambiguous)
+  - dir  vs file : error (ambiguous)
+
+Core options:
+  -h, --help                 Show help
+  -I, --ignore-crlf          Ignore CRLF/LF-only differences (file/dir mode)
+  -o, --outdir DIR           Output directory (default: ./diff_out)
+      --no-progress          Suppress progress messages
+
+Dir-mode options (ignored in file mode unless noted):
+  -r, --recursive            Compare recursively (dir mode)
+  -e, --ext LIST             Extension filter (comma-separated), e.g. "v,sv,vh,svh" (dir mode)
+  -p, --profile NAME         Apply profile: all | text | rtl | code (dir mode)
+  -m, --map FILE             Full manual map (dir mode; disables auto map logic)
+  -R, --rename-map FILE      Rename override map (dir mode; applied on top of auto map)
+  -D, --dump-auto-map FILE   Dump generated pair map (dir mode; TSV)
+  -M, --exit-after-map       Generate/dump map and exit without comparison (dir mode)
+
+Profiles (dir mode presets):
+  -p all   : recursive=0, ignore_crlf=0, no ext filter
+  -p text  : recursive=1, ignore_crlf=1, no ext filter
+  -p rtl   : recursive=1, ignore_crlf=1, ext=v,sv,vh,svh
+  -p code  : recursive=1, ignore_crlf=1, ext=c,cc,cpp,h,hpp,py,sh,tcl,mk,make,txt,md,json,yaml,yml
+
+Notes:
+- In file mode, pair map is not generated.
+- Map files are tab-separated recommended (whitespace-separated also supported; filenames with spaces are unsupported in map files).
+- Lines starting with '#' and blank lines are ignored.
+
+Examples:
+  # file vs file
+  dirdiff.sh a.txt b.txt
+  dirdiff.sh -I a.txt b.txt
+
+  # dir vs dir
+  dirdiff.sh dirA dirB
+  dirdiff.sh -p rtl rtl_asic rtl_asic_8ki
+  dirdiff.sh -r -e "v,sv,vh,svh" -I rtl_asic rtl_asic_8ki
+  dirdiff.sh -p text A B -D auto_map.tsv -M
+  dirdiff.sh A B -R rename_map.txt
+  dirdiff.sh A B -m filemap.txt
+EOF
+}
+
+log() { [[ "${SHOW_PROGRESS}" -eq 1 ]] && echo "$*"; }
+die() { echo "[ERROR] $*" >&2; exit 3; }
+
+# Early help
+if [[ $# -eq 0 ]]; then
+  usage
+  exit 3
+fi
+for arg in "$@"; do
+  case "$arg" in
+    -h|--help) usage; exit 0 ;;
+  esac
+done
+
+# Parse options / positionals
+declare -a POSITIONALS=()
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -h|--help) usage; exit 0 ;;
+    -r|--recursive) RECURSIVE=1; shift ;;
+    -I|--ignore-crlf) IGNORE_CRLF=1; shift ;;
+    -o|--outdir) [[ $# -ge 2 ]] || die "$1 requires an argument"; OUTDIR="$2"; shift 2 ;;
+    -e|--ext) [[ $# -ge 2 ]] || die "$1 requires an argument"; EXT_FILTER="$2"; shift 2 ;;
+    -p|--profile) [[ $# -ge 2 ]] || die "$1 requires an argument"; PROFILE="$2"; shift 2 ;;
+    -m|--map) [[ $# -ge 2 ]] || die "$1 requires an argument"; MANUAL_MAP="$2"; shift 2 ;;
+    -R|--rename-map) [[ $# -ge 2 ]] || die "$1 requires an argument"; RENAME_MAP="$2"; shift 2 ;;
+    -D|--dump-auto-map) [[ $# -ge 2 ]] || die "$1 requires an argument"; DUMP_AUTO_MAP="$2"; shift 2 ;;
+    -M|--exit-after-map) EXIT_AFTER_MAP=1; shift ;;
+    --no-progress) SHOW_PROGRESS=0; shift ;;
+    --)
+      shift
+      while [[ $# -gt 0 ]]; do POSITIONALS+=("$1"); shift; done
+      ;;
+    -*)
+      die "Unknown option: $1 (use -h for help)"
+      ;;
+    *)
+      POSITIONALS+=("$1"); shift ;;
+  esac
+done
+
+[[ ${#POSITIONALS[@]} -eq 2 ]] || die "Please specify BEFORE and AFTER (use -h for help)"
+BEFORE="${POSITIONALS[0]}"
+AFTER="${POSITIONALS[1]}"
+
+# Detect mode
+if [[ -f "$BEFORE" && -f "$AFTER" ]]; then
+  MODE="file"
+elif [[ -d "$BEFORE" && -d "$AFTER" ]]; then
+  MODE="dir"
+elif [[ -e "$BEFORE" && -e "$AFTER" ]]; then
+  die "Unsupported combination: '$BEFORE' and '$AFTER'. Use file vs file or dir vs dir only."
+else
+  [[ -e "$BEFORE" ]] || die "Path not found: $BEFORE"
+  [[ -e "$AFTER"  ]] || die "Path not found: $AFTER"
+  die "Unsupported path types. Use file vs file or dir vs dir only."
+fi
+
+mkdir -p "$OUTDIR"
+SUMMARY_FILE="$OUTDIR/diff_summary.txt"
+DETAIL_FILE="$OUTDIR/diff_detail.txt"
+: > "$SUMMARY_FILE"
+: > "$DETAIL_FILE"
+
+tmpdir="$(mktemp -d)"
+trap 'rm -rf "$tmpdir"' EXIT
+
+# Helpers
+strip_ansi() { sed -E 's/\x1B\[[0-9;]*[mK]//g'; }
+
+make_normalized_temp_if_needed() {
+  local src="$1"
+  if [[ "$IGNORE_CRLF" -eq 0 ]]; then
+    printf '%s\n' "$src"
+    return 0
+  fi
+  local out
+  out="$(mktemp "$tmpdir/norm.XXXXXX")"
+  sed 's/\r$//' "$src" > "$out"
+  printf '%s\n' "$out"
+}
+
+files_equal() {
+  local f1="$1" f2="$2"
+  cmp -s "$f1" "$f2"
+}
+
+emit_diff_to_detail() {
+  local cmp1="$1" cmp2="$2"
+  if command -v delta >/dev/null 2>&1; then
+    delta --paging=never \
+          --side-by-side \
+          --line-numbers \
+          --wrap-max-lines=1 \
+          --width=200 \
+          --hunk-header-style=omit \
+          --features=-whitespace-error-highlight \
+          --keep-plus-minus-markers \
+          "$cmp1" "$cmp2" | strip_ansi >> "$DETAIL_FILE" || true
+  else
+    diff -u "$cmp1" "$cmp2" >> "$DETAIL_FILE" || true
+  fi
+}
+
+write_header_common() {
+  {
+    printf 'mode        : %s\n' "$MODE"
+    printf 'before      : %s\n' "$BEFORE"
+    printf 'after       : %s\n' "$AFTER"
+    printf 'outdir      : %s\n' "$OUTDIR"
+    printf 'ignore_crlf : %s\n' "$IGNORE_CRLF"
+    if [[ "$MODE" == "dir" ]]; then
+      printf 'profile     : %s\n' "$PROFILE"
+      printf 'recursive   : %s\n' "$RECURSIVE"
+      printf 'ext_filter  : %s\n' "${EXT_FILTER:-<none>}"
+      printf 'manual_map  : %s\n' "${MANUAL_MAP:-<none>}"
+      printf 'rename_map  : %s\n' "${RENAME_MAP:-<none>}"
+      printf 'dump_auto   : %s\n' "${DUMP_AUTO_MAP:-<none>}"
+      printf 'exit_after_map : %s\n' "$EXIT_AFTER_MAP"
+    fi
+    printf '\n'
+  } >> "$DETAIL_FILE"
+}
+
+write_section_header() {
+  local a="$1" b="$2"
+  {
+    printf '\n%s\n' "$LINE"
+    printf '%s <-> %s\n' "$a" "$b"
+    printf '%s\n' "$LINE"
+  } >> "$DETAIL_FILE"
+}
+
+# =============================
+# File mode
+# =============================
+if [[ "$MODE" == "file" ]]; then
+  # Reject dir-only options in file mode (clear behavior)
+  if [[ -n "$MANUAL_MAP" || -n "$RENAME_MAP" || -n "$DUMP_AUTO_MAP" || "$EXIT_AFTER_MAP" -eq 1 ]]; then
+    die "--map/--rename-map/--dump-auto-map/--exit-after-map are dir-mode options and cannot be used in file mode"
+  fi
+  if [[ "$RECURSIVE" -eq 1 || -n "$EXT_FILTER" ]]; then
+    die "--recursive/--ext are dir-mode options and cannot be used in file mode"
+  fi
+  if [[ "$PROFILE" != "all" ]]; then
+    # profile affects mainly dir mode; treat as error to avoid confusion
+    die "--profile is a dir-mode option and cannot be used in file mode"
+  fi
+
+  write_header_common
+  write_section_header "$BEFORE" "$AFTER"
+
+  cmp_before="$(make_normalized_temp_if_needed "$BEFORE")"
+  cmp_after="$(make_normalized_temp_if_needed "$AFTER")"
+
+  if files_equal "$cmp_before" "$cmp_after"; then
+    printf '[no difference]\n' >> "$DETAIL_FILE"
+    count_same=1
+    list_same+=("$BEFORE")
+  else
+    printf '[difference]\n' >> "$DETAIL_FILE"
+    if [[ "$IGNORE_CRLF" -eq 1 ]]; then
+      printf '[note] Compared with CRLF normalization (trailing CR removed)\n' >> "$DETAIL_FILE"
+    fi
+    emit_diff_to_detail "$cmp_before" "$cmp_after"
+    count_diff=1
+    list_diff+=("${BEFORE}<--->${AFTER}")
+  fi
+
+  {
+    printf '//--------Summary--------//\n\n'
+    printf '%s\n#Mode            : file\n%s\n' "$LINE" "$LINE"
+    printf 'before : %s\n' "$BEFORE"
+    printf 'after  : %s\n\n' "$AFTER"
+
+    printf '%s\n#Same files       : %d\n%s\n' "$LINE" "$count_same" "$LINE"
+    for x in "${list_same[@]:-}"; do [[ -n "${x:-}" ]] && printf '%s\n' "$x"; done
+    printf '\n'
+
+    printf '%s\n#Different files  : %d\n%s\n' "$LINE" "$count_diff" "$LINE"
+    printf '#before file <-> after_file\n'
+    for x in "${list_diff[@]:-}"; do [[ -n "${x:-}" ]] && printf '%s\n' "$x"; done
+    printf '\n'
+
+    printf '%s\n#Added files      : 0\n%s\n\n' "$LINE" "$LINE"
+    printf '%s\n#Removed files    : 0\n%s\n\n' "$LINE" "$LINE"
+    printf '%s\n#Missing files    : 0\n%s\n\n' "$LINE" "$LINE"
+
+    printf '[Message] Summary : %s\n' "$SUMMARY_FILE"
+    printf '[Message] Details : %s\n' "$DETAIL_FILE"
+    printf '[Message] PairMap : <not applicable in file mode>\n'
+  } | tee "$SUMMARY_FILE"
+
+  if (( count_diff > 0 )); then
+    exit 1
+  else
+    exit 0
+  fi
+fi
+
+# =============================
+# Dir mode
+# =============================
+
+BEFORE_DIR="$BEFORE"
+AFTER_DIR="$AFTER"
+
+# Apply profile
+case "$PROFILE" in
+  all)
+    ;;
+  text)
+    RECURSIVE=1
+    IGNORE_CRLF=1
+    [[ -z "$EXT_FILTER" ]] && EXT_FILTER=""
+    ;;
+  rtl)
+    RECURSIVE=1
+    IGNORE_CRLF=1
+    [[ -z "$EXT_FILTER" ]] && EXT_FILTER="v,sv,vh,svh"
+    ;;
+  code)
+    RECURSIVE=1
+    IGNORE_CRLF=1
+    [[ -z "$EXT_FILTER" ]] && EXT_FILTER="c,cc,cpp,h,hpp,py,sh,tcl,mk,make,txt,md,json,yaml,yml"
+    ;;
+  *)
+    die "Unknown profile: $PROFILE (supported: all, text, rtl, code)"
+    ;;
+esac
+
+[[ -z "$MANUAL_MAP" || -f "$MANUAL_MAP" ]] || die "Map file not found: $MANUAL_MAP"
+[[ -z "$RENAME_MAP" || -f "$RENAME_MAP" ]] || die "Rename map file not found: $RENAME_MAP"
+if [[ -n "$MANUAL_MAP" && -n "$RENAME_MAP" ]]; then
+  log "[Info] Both --map and --rename-map specified. --map takes precedence (rename-map ignored)."
+fi
+
+before_list="$tmpdir/before_list.txt"
+after_list="$tmpdir/after_list.txt"
+all_list="$tmpdir/all_list.txt"
+pairs_tsv="$tmpdir/pairs.tsv"
+rename_used_before="$tmpdir/rename_used_before.txt"
+rename_used_after="$tmpdir/rename_used_after.txt"
+: > "$rename_used_before"
+: > "$rename_used_after"
+
+normalize_relpath() {
+  local p="$1"
+  p="${p#./}"
+  printf '%s' "$p"
+}
+
+ext_match() {
+  local f="$1"
+  if [[ -z "$EXT_FILTER" ]]; then return 0; fi
+  local base="${f##*/}"
+  local ext=""
+  [[ "$base" == *.* ]] || return 1
+  ext="${base##*.}"
+  IFS=',' read -r -a exts <<< "$EXT_FILTER"
+  local e
+  for e in "${exts[@]}"; do
+    e="${e//[[:space:]]/}"
+    [[ -z "$e" ]] && continue
+    [[ "$ext" == "$e" ]] && return 0
+  done
+  return 1
+}
+
+collect_files() {
+  local dir="$1" out="$2"
+  : > "$out"
+  if [[ "$RECURSIVE" -eq 1 ]]; then
+    while IFS= read -r -d '' f; do
+      local rel
+      rel="$(normalize_relpath "${f#"$dir"/}")"
+      ext_match "$rel" && printf '%s\n' "$rel" >> "$out"
+    done < <(find "$dir" -type f -print0)
+  else
+    while IFS= read -r -d '' f; do
+      local rel
+      rel="$(basename "$f")"
+      ext_match "$rel" && printf '%s\n' "$rel" >> "$out"
+    done < <(find "$dir" -mindepth 1 -maxdepth 1 -type f -print0)
+  fi
+  sort -u -o "$out" "$out"
+}
+
+parse_map_line() {
+  local line="$1"
+  [[ "$line" =~ ^[[:space:]]*$ ]] && return 1
+  [[ "$line" =~ ^[[:space:]]*# ]] && return 1
+
+  local before after rest
+  if [[ "$line" == *$'\t'* ]]; then
+    IFS=$'\t' read -r before after rest <<< "$line"
+  else
+    read -r before after rest <<< "$line"
+  fi
+  [[ -n "${before:-}" && -n "${after:-}" ]] || die "Invalid map line: $line"
+  printf '%s\t%s\n' "$before" "$after"
+  return 0
+}
+
+add_pair() {
+  printf '%s\t%s\n' "$1" "$2" >> "$pairs_tsv"
+}
+
+dump_pairs_to_file() {
+  local src="$1" dst="$2"
+  mkdir -p "$(dirname "$dst")"
+  cp "$src" "$dst"
+}
+
+write_header_common
+
+log "[Info] Collecting files..."
+collect_files "$BEFORE_DIR" "$before_list"
+collect_files "$AFTER_DIR" "$after_list"
+cat "$before_list" "$after_list" | sort -u > "$all_list"
+
+: > "$pairs_tsv"
+
+if [[ -n "$MANUAL_MAP" ]]; then
+  log "[Info] Using manual full map: $MANUAL_MAP"
+  while IFS= read -r line; do
+    if parsed="$(parse_map_line "$line")"; then
+      printf '%s\n' "$parsed" >> "$pairs_tsv"
+    fi
+  done < "$MANUAL_MAP"
+  sort -u -o "$pairs_tsv" "$pairs_tsv"
+else
+  log "[Info] Building auto mapping (same relative path)..."
+
+  if [[ -n "$RENAME_MAP" ]]; then
+    log "[Info] Applying rename overrides: $RENAME_MAP"
+    while IFS= read -r line; do
+      if parsed="$(parse_map_line "$line")"; then
+        before="${parsed%%$'\t'*}"
+        after="${parsed#*$'\t'}"
+        add_pair "$before" "$after"
+        printf '%s\n' "$before" >> "$rename_used_before"
+        printf '%s\n' "$after"  >> "$rename_used_after"
+      fi
+    done < "$RENAME_MAP"
+    sort -u -o "$rename_used_before" "$rename_used_before"
+    sort -u -o "$rename_used_after"  "$rename_used_after"
+  fi
+
+  while IFS= read -r rel; do
+    in_before=0; in_after=0; used_before=0; used_after=0
+    grep -Fxsq -- "$rel" "$before_list" && in_before=1 || true
+    grep -Fxsq -- "$rel" "$after_list"  && in_after=1 || true
+    [[ -s "$rename_used_before" ]] && grep -Fxsq -- "$rel" "$rename_used_before" && used_before=1 || true
+    [[ -s "$rename_used_after"  ]] && grep -Fxsq -- "$rel" "$rename_used_after"  && used_after=1 || true
+
+    if [[ "$in_before" -eq 1 && "$in_after" -eq 1 ]]; then
+      [[ "$used_before" -eq 0 && "$used_after" -eq 0 ]] && add_pair "$rel" "$rel"
+    elif [[ "$in_before" -eq 1 ]]; then
+      [[ "$used_before" -eq 0 ]] && add_pair "$rel" "-"
+    elif [[ "$in_after" -eq 1 ]]; then
+      [[ "$used_after" -eq 0 ]] && add_pair "-" "$rel"
+    fi
+  done < "$all_list"
+
+  sort -u -o "$pairs_tsv" "$pairs_tsv"
+fi
+
+if [[ "$ALWAYS_SAVE_AUTO_MAP" -eq 1 ]]; then
+  dump_pairs_to_file "$pairs_tsv" "$OUTDIR/auto_pairs.tsv"
+fi
+if [[ -n "$DUMP_AUTO_MAP" ]]; then
+  dump_pairs_to_file "$pairs_tsv" "$DUMP_AUTO_MAP"
+  log "[Info] Pair map saved: $DUMP_AUTO_MAP"
+fi
+
+if [[ "$EXIT_AFTER_MAP" -eq 1 ]]; then
+  {
+    printf '//--------Map Only--------//\n'
+    printf '[Message] Pair map generated.\n'
+    printf 'Primary pair map : %s\n' "$OUTDIR/auto_pairs.tsv"
+    if [[ -n "$DUMP_AUTO_MAP" ]]; then
+      printf 'Dumped pair map  : %s\n' "$DUMP_AUTO_MAP"
+    fi
+  } | tee "$SUMMARY_FILE"
+  exit 0
+fi
+
+log "[Info] Comparing files..."
+while IFS=$'\t' read -r file_before file_after; do
+  file_before="${file_before:-}"
+  file_after="${file_after:-}"
+
+  write_section_header "$file_before" "$file_after"
+
+  if [[ "$file_before" == "-" && "$file_after" != "-" ]]; then
+    printf '[add_file] %s\n' "$file_after" >> "$DETAIL_FILE"
+    ((count_add+=1)); list_add+=("$file_after")
+    continue
+  fi
+
+  if [[ "$file_before" != "-" && "$file_after" == "-" ]]; then
+    printf '[remove_file] %s\n' "$file_before" >> "$DETAIL_FILE"
+    ((count_remove+=1)); list_remove+=("$file_before")
+    continue
+  fi
+
+  before_path="$BEFORE_DIR/$file_before"
+  after_path="$AFTER_DIR/$file_after"
+
+  if [[ -f "$before_path" && -f "$after_path" ]]; then
+    cmp_before="$(make_normalized_temp_if_needed "$before_path")"
+    cmp_after="$(make_normalized_temp_if_needed "$after_path")"
+
+    if files_equal "$cmp_before" "$cmp_after"; then
+      printf '[no difference]\n' >> "$DETAIL_FILE"
+      ((count_same+=1)); list_same+=("$file_before")
+    else
+      printf '[difference]\n' >> "$DETAIL_FILE"
+      if [[ "$IGNORE_CRLF" -eq 1 ]]; then
+        printf '[note] Compared with CRLF normalization (trailing CR removed)\n' >> "$DETAIL_FILE"
+      fi
+      emit_diff_to_detail "$cmp_before" "$cmp_after"
+      ((count_diff+=1)); list_diff+=("${file_before}<--->${file_after}")
+    fi
+  else
+    printf '[missing] %s or %s not found\n' "$file_before" "$file_after" >> "$DETAIL_FILE"
+    ((count_missing+=1)); list_missing+=("$file_before <-> $file_after")
+  fi
+done < "$pairs_tsv"
+
+{
+  printf '//--------Summary--------//\n\n'
+  printf '%s\n#Mode            : dir\n%s\n' "$LINE" "$LINE"
+  printf 'before : %s\n' "$BEFORE_DIR"
+  printf 'after  : %s\n\n' "$AFTER_DIR"
+
+  printf '%s\n#Same files       : %d\n%s\n' "$LINE" "$count_same" "$LINE"
+  for x in "${list_same[@]:-}"; do [[ -n "${x:-}" ]] && printf '%s\n' "$x"; done
+  printf '\n'
+
+  printf '%s\n#Different files  : %d\n%s\n' "$LINE" "$count_diff" "$LINE"
+  printf '#before file <-> after_file\n'
+  for x in "${list_diff[@]:-}"; do [[ -n "${x:-}" ]] && printf '%s\n' "$x"; done
+  printf '\n'
+
+  printf '%s\n#Added files      : %d\n%s\n' "$LINE" "$count_add" "$LINE"
+  for x in "${list_add[@]:-}"; do [[ -n "${x:-}" ]] && printf '%s\n' "$x"; done
+  printf '\n'
+
+  printf '%s\n#Removed files    : %d\n%s\n' "$LINE" "$count_remove" "$LINE"
+  for x in "${list_remove[@]:-}"; do [[ -n "${x:-}" ]] && printf '%s\n' "$x"; done
+  printf '\n'
+
+  printf '%s\n#Missing files    : %d\n%s\n' "$LINE" "$count_missing" "$LINE"
+  for x in "${list_missing[@]:-}"; do [[ -n "${x:-}" ]] && printf '%s\n' "$x"; done
+  printf '\n'
+
+  printf '[Message] Summary : %s\n' "$SUMMARY_FILE"
+  printf '[Message] Details : %s\n' "$DETAIL_FILE"
+  printf '[Message] PairMap : %s\n' "$OUTDIR/auto_pairs.tsv"
+} | tee "$SUMMARY_FILE"
+
+if (( count_missing > 0 || count_add > 0 || count_remove > 0 )); then
+  exit 2
+elif (( count_diff > 0 )); then
+  exit 1
+else
+  exit 0
+fi

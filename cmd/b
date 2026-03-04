@@ -1,0 +1,383 @@
+#!/bin/bash
+
+# bookmarks_core.sh
+# csh alias usage:
+#   alias b 'eval "`bash /path/to/bookmarks_core.sh $*:q`"'
+#
+# usage:
+#   b cd ...
+#   b vi ...
+#   b so ...
+#
+# env:
+#   BOOKMARKS_BASE_DIR : bookmark data directory (default: script directory)
+#
+# policy:
+# - User messages -> stderr
+# - Commands for csh eval -> stdout (always valid csh code)
+
+set -u
+
+mode="${1:-}"
+shift || true
+
+base_dir="$HOME/cmd"
+
+bookmarks_list="${base_dir}/bookmarks.list"
+cd_history="${base_dir}/cd_history.list"
+cd_history_bk="${base_dir}/cd_history_bk.list"
+
+bar="#======================#"
+
+mkdir -p "$base_dir"
+[[ -f "$bookmarks_list" ]] || touch "$bookmarks_list"
+
+case "$mode" in
+  cd) marker="cd_" ;;
+  vi) marker="vi_" ;;
+  so) marker="so_" ;;
+  "" )
+    printf '%s\n' 'echo "[ERROR] : mode is required (cd|vi|so)"'
+    printf '%s\n' 'echo "Try: b cd -h"'
+    printf '%s\n' ':'
+    exit 0
+    ;;
+  *)
+    printf '%s\n' "echo \"[ERROR] : invalid mode -> $mode\""
+    printf '%s\n' 'echo "Use: cd / vi / so"'
+    printf '%s\n' ':'
+    exit 0
+    ;;
+esac
+
+msg() { printf '%s\n' "$*" >&2; }
+emit_noop() { printf '%s\n' ':'; }
+
+validate_name() {
+  [[ "$1" =~ ^[A-Za-z0-9_-]+$ ]]
+}
+
+normalize_bookmarks() {
+  sort -o "$bookmarks_list" "$bookmarks_list"
+  sed -i \
+    -e '/Bookmarks_/d' \
+    -e '/^#/d' \
+    -e '/^[[:space:]]*$/d' \
+    -e "0,/^cd_/ s|^cd_|$bar\n#Bookmarks_cd    \n$bar\ncd_|" \
+    -e "0,/^vi_/ s|^vi_|$bar\n#Bookmarks_vi    \n$bar\nvi_|" \
+    -e "0,/^so_/ s|^so_|$bar\n#Bookmarks_source\n$bar\nso_|" \
+    "$bookmarks_list"
+}
+
+list_mode() {
+  grep -A 1000 "Bookmarks_${mode}" "$bookmarks_list" \
+    | grep "^${marker}" \
+    | sed -e "s/^${marker}//" -e 's/@/\t-> /'
+}
+
+list_all() {
+  sed -e 's/^cd_//' -e 's/^vi_//' -e 's/^so_//' -e 's/@/\t-> /' "$bookmarks_list"
+}
+
+key_of() {
+  printf '%s%s@\n' "$marker" "$1"
+}
+
+exists_name() {
+  local key
+  key="$(key_of "$1")"
+  grep -Fq "${key} " "$bookmarks_list"
+}
+
+find_path() {
+  local key
+  key="$(key_of "$1")"
+  grep -F "${key} " "$bookmarks_list" | sed -e "s|^${key} ||" | head -n1
+}
+
+delete_name() {
+  local key
+  key="$(key_of "$1")"
+  sed -i "\|^${key} |d" "$bookmarks_list"
+}
+
+add_name() {
+  local name="$1" path="$2" key
+  key="$(key_of "$name")"
+  delete_name "$name"
+  echo "${key} ${path}" >> "$bookmarks_list"
+}
+
+print_usage() {
+  case "$mode" in
+    cd)
+      cat >&2 <<'EOF'
+usage : b cd -l(-la) -> Display bookmarks
+usage : b cd -v      -> View & edit bookmarks
+usage : b cd -b XX   -> Add current path to bookmark XX
+usage : b cd -d XX   -> Remove bookmark XX
+usage : b cd XX      -> cd to bookmark XX
+usage : b cd -log    -> Show extended cd logs
+usage : b cd -       -> Select destination from cd history (interactive)
+EOF
+      ;;
+    vi)
+      cat >&2 <<'EOF'
+usage : b vi -l(-la)         -> Show bookmarks
+usage : b vi -v              -> View & edit bookmarks
+usage : b vi -b file_name XX -> Add file_name as bookmark XX
+usage : b vi -d XX           -> Remove bookmark XX
+usage : b vi XX              -> Open bookmark XX by vi/$EDITOR
+EOF
+      ;;
+    so)
+      cat >&2 <<'EOF'
+usage : b so -l(-la)         -> Show bookmarks
+usage : b so -v              -> View & edit bookmarks
+usage : b so -b file_name XX -> Add file_name as bookmark XX
+usage : b so -d XX           -> Remove bookmark XX
+usage : b so XX [args...]    -> Source bookmark XX with args
+EOF
+      ;;
+  esac
+}
+
+emit_csh_squote() {
+  local s="$1"
+  s=${s//\'/\'\\\'\'}
+  printf "'%s'" "$s"
+}
+
+menu_select_from_stdin() {
+  local answer_file="$1"
+  local -a menu
+  local choice=0
+  local tail i answer
+
+  mapfile -t menu
+  tail=$(( ${#menu[@]} - 1 ))
+
+  if (( ${#menu[@]} == 0 )); then
+    : > "$answer_file"
+    return 0
+  fi
+
+  printf "\e[32mChoose one       [exit:q]\e[m\n" >&2
+  for _ in $(seq 0 "$tail"); do echo "" >&2; done
+
+  while true; do
+    printf "\e[%dA\e[m" "${#menu[@]}" >&2
+
+    for i in $(seq 0 "$tail"); do
+      if [[ "$choice" == "$i" ]]; then
+        printf "\e[1;31m>\e[m \e[1;4m" >&2
+      else
+        printf "  " >&2
+      fi
+      printf "%s\e[m\n" "${menu[$i]}" >&2
+    done
+
+    IFS= read -rsn1 answer
+    if [[ "$answer" == $'\e' ]]; then
+      IFS= read -rsn2 answer
+    elif [[ "$answer" == "q" ]]; then
+      echo "quit" > "$answer_file"
+      return 0
+    fi
+
+    case "$answer" in
+      "B"|"[B"|"C"|"[C")
+        (( choice < tail )) && ((choice++))
+        ;;
+      "A"|"[A"|"D"|"[D")
+        (( choice > 0 )) && ((choice--))
+        ;;
+      "")
+        echo "${menu[$choice]}" > "$answer_file"
+        return 0
+        ;;
+    esac
+  done
+}
+
+# no args
+if [[ $# -eq 0 ]]; then
+  msg "[ERROR] : Not enough arguments"
+  print_usage
+  emit_noop
+  exit 0
+fi
+
+# help
+if [[ $# -eq 1 && ( "$1" == "-h" || "$1" == "--help" ) ]]; then
+  print_usage
+  emit_noop
+  exit 0
+fi
+
+# list/view/log
+if [[ $# -eq 1 && ( "$1" == "-l" || "$1" == "-la" || "$1" == "-v" || "$1" == "-log" ) ]]; then
+  if [[ "$1" == "-log" && "$mode" != "cd" ]]; then
+    msg "[ERROR] Unsupported option for this mode -> -log"
+    emit_noop
+    exit 0
+  fi
+
+  normalize_bookmarks
+  case "$1" in
+    -l)
+      grep -A 1 "Bookmarks_${mode}" "$bookmarks_list" >&2 || true
+      list_mode >&2 || true
+      ;;
+    -la)
+      list_all >&2 || true
+      ;;
+    -v)
+      "${EDITOR:-vi}" "$bookmarks_list"
+      ;;
+    -log)
+      [[ -f "$cd_history_bk" ]] || touch "$cd_history_bk"
+      tac "$cd_history_bk" >&2
+      ;;
+  esac
+  emit_noop
+  exit 0
+fi
+
+# b cd - (interactive)
+if [[ "$mode" == "cd" && $# -eq 1 && "$1" == "-" ]]; then
+  [[ -f "$cd_history" ]] || touch "$cd_history"
+
+  tmp_answer="$(mktemp "${base_dir}/answer.XXXXXX.tmp")" || { emit_noop; exit 0; }
+
+  tac "$cd_history" | menu_select_from_stdin "$tmp_answer"
+
+  if [[ ! -f "$tmp_answer" ]]; then
+    emit_noop
+    exit 0
+  fi
+
+  selected="$(cat "$tmp_answer")"
+  rm -f "$tmp_answer"
+
+  [[ -z "$selected" || "$selected" == "quit" ]] && { emit_noop; exit 0; }
+
+  # existing compatibility: path starts at char 18
+  enter="${selected:17}"
+  [[ -z "$enter" ]] && { emit_noop; exit 0; }
+
+  printf "cd %s\n" "$(emit_csh_squote "$enter")"
+  printf "printf \"\\\\033[35mPWD\\\\033[m : %%s\\\\n\" \"\$cwd\"\n"
+  exit 0
+fi
+
+# delete
+if [[ $# -eq 2 && "$1" == "-d" ]]; then
+  name="$2"
+  validate_name "$name" || { msg "Error : bookmark name must be [A-Za-z0-9_-]"; emit_noop; exit 0; }
+  exists_name "$name" || { msg "Error : Not found -> $name"; emit_noop; exit 0; }
+  p="$(find_path "$name")"
+  delete_name "$name"
+  msg "Removed from bookmark : $name -> $p"
+  emit_noop
+  exit 0
+fi
+
+# add
+if [[ "$mode" == "cd" ]]; then
+  if [[ $# -eq 2 && "$1" == "-b" ]]; then
+    name="$2"
+    validate_name "$name" || { msg "Error : bookmark name must be [A-Za-z0-9_-]"; emit_noop; exit 0; }
+    add_name "$name" "$PWD"
+    msg "Added to bookmark : $name -> $PWD"
+    emit_noop
+    exit 0
+  elif [[ "${1:-}" == "-b" && $# -ge 3 ]]; then
+    msg "[ERROR] Too many arguments"
+    emit_noop
+    exit 0
+  fi
+else
+  if [[ $# -eq 2 && "$1" == "-b" ]]; then
+    msg "Error : Not enough arguments"
+    emit_noop
+    exit 0
+  elif [[ $# -eq 3 && "$1" == "-b" ]]; then
+    file="$2"; name="$3"
+    validate_name "$name" || { msg "Error : bookmark name must be [A-Za-z0-9_-]"; emit_noop; exit 0; }
+    [[ -f "$file" ]] || { msg "Error : Undefined file -> $file"; emit_noop; exit 0; }
+    if [[ -f "./$file" ]]; then
+      path="$PWD/$file"
+    else
+      path="$file"
+    fi
+    add_name "$name" "$path"
+    msg "Added to bookmark : $name -> $path"
+    emit_noop
+    exit 0
+  elif [[ "${1:-}" == "-b" && $# -ge 4 ]]; then
+    msg "Error : Too many arguments"
+    emit_noop
+    exit 0
+  fi
+fi
+
+# open/execute
+name="${1:-}"
+validate_name "$name" || { msg "Error : bookmark name must be [A-Za-z0-9_-]"; emit_noop; exit 0; }
+exists_name "$name" || { msg "Error : Not found -> $name"; emit_noop; exit 0; }
+
+target_path="$(find_path "$name")"
+
+case "$mode" in
+  cd)
+    printf "cd %s\n" "$(emit_csh_squote "$target_path")"
+    printf "printf \"\\\\033[35mPWD\\\\033[m : %%s\\\\n\" \"\$cwd\"\n"
+    ;;
+  vi)
+    msg "vi : $target_path"
+    printf "set __bkm_target=%s\n" "$(emit_csh_squote "$target_path")"
+    cat <<'EOF'
+echo "Open the file [Press:y/n/Enter]"
+set __bkm_ans = $<
+if ("$__bkm_ans" == "y" || "$__bkm_ans" == "") then
+    if ($?EDITOR) then
+        $EDITOR "$__bkm_target"
+    else
+        vi "$__bkm_target"
+    endif
+else if ("$__bkm_ans" == "n") then
+    echo "Canceled"
+else
+    echo "Don't understand : $__bkm_ans"
+endif
+unset __bkm_target
+unset __bkm_ans
+EOF
+    ;;
+  so)
+    shift
+    msg "Source : $target_path"
+    printf "set __bkm_target=%s\n" "$(emit_csh_squote "$target_path")"
+    printf "set __bkm_args = ("
+    for a in "$@"; do
+      printf " %s" "$(emit_csh_squote "$a")"
+    done
+    printf " )\n"
+    cat <<'EOF'
+echo "Source the file [Press:y/n/Enter]"
+set __bkm_ans = $<
+if ("$__bkm_ans" == "y" || "$__bkm_ans" == "") then
+    echo "It was sourced -> $__bkm_target"
+    source "$__bkm_target" $__bkm_args
+else if ("$__bkm_ans" == "n") then
+    echo "Canceled"
+else
+    echo "Don't understand : $__bkm_ans"
+endif
+unset __bkm_target
+unset __bkm_args
+unset __bkm_ans
+EOF
+    ;;
+esac

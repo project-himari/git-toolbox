@@ -1,0 +1,6 @@
+#!/bin/tcsh
+#this script is wrapper of "rm_tmpfile.csh"
+set GIT_ROOT = `git rev-parse --show-toplevel`
+set INST_DIR = "$GIT_ROOT/scripts/utility/keep_dir"
+set CMD      = "$INST_DIR/keep_dir.csh"
+  tcsh $CMD

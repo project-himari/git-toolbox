@@ -1,0 +1,15 @@
+#!/bin/tcsh
+#this script is wrapper of "license_checker.csh"
+set GIT_ROOT = `git rev-parse --show-toplevel`
+set INST_DIR = "$GIT_ROOT/scripts/utility/license_checker"
+set CMD      = "$INST_DIR/license_checker.csh"
+
+if ($#argv == 0) then
+  tcsh $CMD
+endif
+if ($#argv == 1) then
+  tcsh $CMD $argv[1]
+endif
+if ($#argv == 2) then
+  tcsh $CMD $argv[1] $argv[2]
+endif

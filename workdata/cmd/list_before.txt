@@ -1,0 +1,13 @@
+CB.v
+cre_ecc_ctrl.sv
+cre_ecc_full.v
+cre_ecc_regif.v
+cre_ecc.v
+CRYPRO_02_header.v
+CRYPRO_32bit.v
+func.v
+MAS.v
+MIN.v
+MIR.v
+MMS.v
+MPC.v
